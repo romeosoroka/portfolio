@@ -163,7 +163,7 @@ html.dark-mode .contact:hover {
   padding: 8px 15px;
   background-color: transparent;
   color: #555;
-  font-weight: 400;  
+  font-weight: 500;  
   border: none;
   cursor: pointer;
   transition: all var(--transition-speed) ease;
@@ -181,7 +181,7 @@ html.dark-mode .contact:hover {
 .toggle-button.active, .toggle-button.active:hover {
   color: #000;
   background-color: rgba(0,0,0,0.1);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 html.dark-mode .toggle-button {
@@ -196,7 +196,7 @@ html.dark-mode .toggle-button:hover {
 html.dark-mode .toggle-button.active, html.dark-mode .toggle-button.active:hover {
   color: #fff;
   background-color: rgba(255, 255, 255, 0.15);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 @media (max-width: 768px) {
