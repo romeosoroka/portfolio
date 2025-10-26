@@ -12,15 +12,10 @@
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
 
-  <script type="importmap">
-  {
-    "imports": {
-      "react-dom": "https://esm.sh/react-dom@18.2.0",
-      "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-      "react": "https://esm.sh/react@18.2.0"
-    }
-  }
-  </script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
   <style>
     :root {
       --background-light: white;
@@ -230,7 +225,7 @@
       }
     }
 
-    .floating-menu, .scrollback-menu {
+    .floating-menu {
       display: none;
       position: fixed;
       left: 50%;
@@ -242,18 +237,10 @@
       box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
       border-radius: 8px;
       width: auto;
-    }
-
-    .floating-menu {
       bottom: 10px;
     }
 
-    .scrollback-menu {
-      top: 10px;
-      border-radius: 8px;
-    }
-
-    html.dark-mode .floating-menu, html.dark-mode .scrollback-menu {
+    html.dark-mode .floating-menu {
         background-color: rgba(44, 44, 44, 0.8);
     }
 
@@ -286,11 +273,6 @@
       box-shadow: 0 8px 25px rgba(0,0,0,0.15);
     }
 
-    .toggleGalleryButton.active {
-      box-shadow: 0 0 0 3px var(--accent-color), 0 8px 25px rgba(0,0,0,0.2);
-      transform: translateY(-5px);
-    }
-
     .toggleGalleryButton img {
       width: 100%;
       height: 100%;
@@ -306,10 +288,6 @@
       filter: grayscale(0);
     }
 
-    .toggleGalleryButton.active img {
-      filter: grayscale(0);
-    }
-
     @media (max-width: 768px) {
       .toggleGalleryButton {
         width: 150px;
@@ -317,64 +295,114 @@
       }
     }
 
-    .gallery-container-animated {
-      display: grid;
-      grid-template-rows: 0fr;
-      transition: grid-template-rows 0.5s ease-out;
+    /* --- Gallery Modal --- */
+    .gallery-modal {
+      display: flex;
+      position: fixed;
+      z-index: 998; /* Below single image modal */
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(10px);
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity var(--transition-speed) ease, visibility 0s var(--transition-speed);
     }
 
-    .gallery-container-animated.open {
-      grid-template-rows: 1fr;
+    .gallery-modal.show {
+      opacity: 1;
+      visibility: visible;
+      transition: opacity var(--transition-speed) ease;
     }
 
-    .gallery {
+    html.dark-mode .gallery-modal {
+      background-color: rgba(30, 30, 30, 0.6);
+    }
+
+    .gallery-modal-content {
+      background-color: rgba(255, 255, 255, 0.7);
+      padding: 20px;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 1400px;
+      height: 90vh;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      transform: scale(0.95);
+      transition: transform var(--transition-speed) ease, background-color var(--transition-speed) ease;
+    }
+
+    .gallery-modal.show .gallery-modal-content {
+        transform: scale(1);
+    }
+
+    html.dark-mode .gallery-modal-content {
+      background-color: rgba(44, 44, 44, 0.7);
+    }
+
+    .gallery-modal-content h2 {
+      text-transform: uppercase;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 400;
+      margin: 0 0 20px 0;
+      letter-spacing: 4pt;
+      text-align: center;
+      color: #aaa;
+    }
+
+    .gallery-modal-grid {
+      flex-grow: 1;
       overflow: hidden;
-      padding-top: 40px;
-      padding-bottom: 30px;    
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
-      margin: 10px;
       justify-content: center;
+      align-items: flex-start;
+      padding: 35px 10px 10px;
     }
 
-
-    .img-container {
+    .gallery-modal-img-container {
       position: relative;
       overflow: hidden;
       cursor: pointer;
-      width: auto;
-      height: 250px;
       border-radius: 8px;
       transition: all var(--transition-speed) ease;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      flex-shrink: 0;
     }
 
-    .img-container:hover {
+    .gallery-modal-img-container:hover {
       transform: translateY(-5px);
-      box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
     }
 
-    .img-container img {
-      width: auto;
+    .gallery-modal-img-container img {
+      width: 100%;
       height: 100%;
-      object-fit: contain;
-      border-radius: 8px;  
+      object-fit: cover;
+      border-radius: 8px;
       transition: transform 0.4s ease, filter 0.5s ease;
       filter: grayscale(50%);
     }
 
-    @media (max-width: 768px) {
-      .img-container,
-      .img-container img {
-        height: 100px;
-      }
-    }
-
-    .img-container:hover img {
+    .gallery-modal-img-container:hover img {
       transform: scale(1.05);
       filter: grayscale(0);
     }
+
+    @media (max-width: 768px) {
+      .gallery-modal-content h2 {
+        font-size: 1.2em;
+      }
+    }
+
+    /* --- --- */
 
     .loader-container {
       width: 100%;
@@ -524,21 +552,49 @@
       overflow: hidden;
     }
 
+    .close-gallery-modal,
     .close {
       position: absolute;
-      top: 5px;
-      right: 15px;
       color: #888;
-      font-size: 40px;
-      font-weight: 300;
+      font-size: 28px;
+      font-weight: bold;
       cursor: pointer;
-      transition: color 0.3s, transform 0.3s;
-      z-index: 11; /* Should be above instruction overlay */
+      transition: all 0.3s ease;
+      width: 44px;
+      height: 44px;
+      line-height: 44px; /* Vertically center the '×' */
+      text-align: center;
+      border-radius: 8px;
+      user-select: none;
     }
 
+    .close-gallery-modal {
+      z-index: 10;
+      top: 5px;
+      right: 5px;
+    }
+
+    .close {
+      z-index: 11; /* Should be above instruction overlay */
+      top: 5px;
+      right: 5px;
+    }
+
+    .close-gallery-modal:hover,
     .close:hover {
-      color: #ff6666;
-      transform: rotate(90deg);
+      color: #444; 
+      background-color: rgba(255,255,255,0.5);
+    }
+
+    html.dark-mode .close-gallery-modal,
+    html.dark-mode .close {
+      color: #aaa;
+    }
+
+    html.dark-mode .close-gallery-modal:hover,
+    html.dark-mode .close:hover {
+      color: #eee;
+      background-color: rgba(0,0,0,0.3);
     }
 
     .prev,
@@ -597,57 +653,53 @@
       .next { right: 1%; }
     }
   </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+  }
+}
+</script>
 </head>
 <body>
   <div id="root"></div>
-  <script type="module">
-    import React from 'react';
-    import ReactDOM from 'react-dom/client';
-
+  <script type="text/babel">
     const { useState, useEffect, useRef, useCallback } = React;
 
-    // Helper to disable events
-    const preventDefault = (e) => e.preventDefault();
+    // --- COMPONENTS ---
 
-    // --- Helper Functions ---
-    const scrollToElement = (elementId) => {
-      const element = document.getElementById(elementId);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
-      }
-    };
-
-    const parseCsv = (text) => {
-      if (!text) return [];
-      // Split by newline characters, handling both LF and CRLF line endings.
-      return text.split(/\r?\n/).map(row => row.split(',').map(cell => cell.trim().replace(/"/g, '')));
-    };
-
-    // --- Header Component ---
     const Header = ({ toggleDarkMode, isDarkMode }) => {
       return (
-        React.createElement('header', null,
-          React.createElement('div', { className: 'header' }, 'ROMAN SOROKA'),
-          React.createElement('span', { className: 'info' },
-            "I'm Roman Soroka, a professional retoucher with over 14 years of experience. I have extensive experience in stock photo editing (lifestyle, sport, business, portraits, still-life) and an ability to work quickly and efficiently under tight deadlines."
-          ),
-          React.createElement('br', null),
-          React.createElement('a', { href: 'mailto:romeosoroka@gmail.com', title: 'Email' },
-            React.createElement('i', { className: 'contact fa-solid fa-envelope', style: { fontSize: '23px' } })
-          ),
-          React.createElement('a', { href: 'https://t.me/romeosoroka', target: '_blank', title: 'Telegram', rel: 'noopener noreferrer' },
-            React.createElement('i', { className: 'contact fa-brands fa-telegram', style: { fontSize: '23px' } })
-          ),
-          React.createElement('div', { className: 'dark-mode-button', onClick: toggleDarkMode, title: 'switch background' },
-            React.createElement('i', { className: `dark-mode-icon ${isDarkMode ? 'fa-solid fa-sun' : 'fa-solid fa-moon'}` })
-          ),
-          React.createElement('hr', { style: { margin: '20px auto', width: '40%' } })
-        )
+        <header>
+          <div className="header">ROMAN SOROKA</div>
+          <span className="info">
+            I'm Roman Soroka, a professional retoucher with over 14 years of experience. I have extensive experience in stock photo editing (lifestyle, sport, business, portraits, still-life) and an ability to work quickly and efficiently under tight deadlines.
+          </span>
+          <br />
+          <a href="mailto:romeosoroka@gmail.com" title="Email">
+            <i className='contact fa-solid fa-envelope' style={{ fontSize: '23px' }}></i>
+          </a>
+          <a href="https://t.me/romeosoroka" target="_blank" title="Telegram" rel="noopener noreferrer">
+            <i className='contact fa-brands fa-telegram' style={{ fontSize: '23px' }}></i>
+          </a>
+          <div className="dark-mode-button" onClick={toggleDarkMode} title="switch background">
+            <i className={`dark-mode-icon ${isDarkMode ? 'fa-solid fa-sun' : 'fa-solid fa-moon'}`}></i>
+          </div>
+          <hr style={{ margin: '20px auto', width: '40%' }} />
+        </header>
       );
     };
 
-    // --- Navigation Component ---
     const Navigation = ({ categories, activeSectionId }) => {
+      const scrollToElement = (elementId) => {
+        const element = document.getElementById(elementId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      };
+      
       const [isFloating, setIsFloating] = useState(false);
 
       useEffect(() => {
@@ -663,97 +715,33 @@
         };
       }, []);
 
-      const handleScrollBack = () => {
-        const activeGalleryButton = document.querySelector('.toggleGalleryButton.active');
-        if (activeGalleryButton) {
-            activeGalleryButton.scrollIntoView({ behavior: 'smooth' });
-            activeGalleryButton.click();
-        }
-      };
-
       const menuButtons = (
-        React.createElement(React.Fragment, null,
-          categories.map(cat => (
-            React.createElement('button', { key: cat.id, className: `toggle-button ${activeSectionId === cat.id ? 'active' : ''}`, onClick: () => scrollToElement(`${cat.id}-section`) },
-              cat.title
-            )
-          ))
-        )
+          <React.Fragment>
+            {categories.map(cat => (
+                <button key={cat.id} className={`toggle-button ${activeSectionId === cat.id ? 'active' : ''}`} onClick={() => scrollToElement(`${cat.id}-section`)}>
+                {cat.title}
+                </button>
+            ))}
+          </React.Fragment>
       );
 
       return (
-        React.createElement(React.Fragment, null,
-          React.createElement('div', { className: 'section-button' }, menuButtons),
-          React.createElement('div', { className: 'floating-menu', style: { display: isFloating ? 'block' : 'none' } },
-            menuButtons
-          ),
-          React.createElement('div', { className: 'scrollback-menu' },
-            React.createElement('button', { className: 'scrollback-button toggle-button', onClick: handleScrollBack }, 'SCROLL BACK')
-          )
-        )
+        <React.Fragment>
+          <div className="section-button">{menuButtons}</div>
+          <div className="floating-menu" style={{ display: isFloating ? 'block' : 'none' }}>
+            {menuButtons}
+          </div>
+        </React.Fragment>
       );
     };
 
-    // --- Image Gallery Component ---
-    const ImageGallery = React.forwardRef(({ gallery, openModal }, ref) => {
-      const [images, setImages] = useState([]);
-      const [isLoading, setIsLoading] = useState(true);
-
-      useEffect(() => {
-        if (!gallery.csvUrl) return;
-
-        setIsLoading(true);
-        fetch(gallery.csvUrl)
-          .then(response => response.text())
-          .then(csvText => {
-            const rows = parseCsv(csvText);
-            const imageMap = new Map();
-            
-            rows.forEach(([fileName, fileUrl]) => {
-              if (!fileName || !fileUrl) return;
-              const baseName = fileName.replace('_raw.jpg', '').replace('_final.jpg', '');
-              if (!imageMap.has(baseName)) {
-                imageMap.set(baseName, { id: baseName, alt: `All rights reserved © ${gallery.alt}` });
-              }
-              const imageObject = imageMap.get(baseName);
-              if (fileName.includes('_raw')) {
-                imageObject.rawSrc = fileUrl;
-              } else if (fileName.includes('_final')) {
-                imageObject.finalSrc = fileUrl;
-              }
-            });
-            
-            const loadedImages = Array.from(imageMap.values())
-                .filter(img => img.rawSrc && img.finalSrc);
-
-            setImages(loadedImages);
-          }).finally(() => {
-            setIsLoading(false);
-          });
-      }, [gallery]);
-
-      return (
-        React.createElement('div', { className: 'gallery', ref: ref },
-          isLoading ? (
-            React.createElement('div', { className: 'loader-container' },
-              React.createElement('div', { className: 'loader' })
-            )
-          ) : (
-            images.map((image, index) => (
-              React.createElement('div', { key: image.id, className: 'img-container', onClick: () => openModal(images, index, gallery.id) },
-                React.createElement('img', { src: image.finalSrc, alt: image.alt, loading: 'lazy', decoding: 'async' })
-              )
-            ))
-          )
-        )
-      );
-    });
-
-    // --- Gallery Category Component ---
-    const GalleryCategory = ({ title, categoryId, buttonsCsvUrl, openModal }) => {
+    const GalleryCategory = ({ title, categoryId, buttonsCsvUrl, onGallerySelect }) => {
       const [subGalleries, setSubGalleries] = useState([]);
-      const [activeGalleryId, setActiveGalleryId] = useState(null);
-      const galleryRef = useRef(null);
+
+      const parseCsv = (text) => {
+        if (!text) return [];
+        return text.split('\n').map(row => row.split(',').map(cell => cell.trim().replace(/"/g, '')));
+      };
 
       useEffect(() => {
         fetch(buttonsCsvUrl)
@@ -762,7 +750,7 @@
             const rows = parseCsv(csvText);
             const galleries = rows.map(([id, csvUrl, amount, alt, previewImage]) => ({
               id: id,
-              csvUrl: csvUrl.replace(/&amp;/g, '&'),
+              csvUrl: csvUrl ? csvUrl.replace(/&amp;/g, '&') : '',
               amount: parseInt(amount, 10),
               alt: alt,
               previewImage: previewImage
@@ -771,250 +759,361 @@
           });
       }, [buttonsCsvUrl]);
 
-      useEffect(() => {
-        if (activeGalleryId && galleryRef.current) {
-          const timer = setTimeout(() => {
-            galleryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 550);
-          return () => clearTimeout(timer);
-        }
-      }, [activeGalleryId]);
-
-      const toggleGallery = (id) => {
-        const scrollbackMenu = document.querySelector('.scrollback-menu');
-        if (activeGalleryId === id) {
-          setActiveGalleryId(null);
-          if(scrollbackMenu) scrollbackMenu.style.display = 'none';
-        } else {
-          setActiveGalleryId(id);
-          if(scrollbackMenu) scrollbackMenu.style.display = 'block';
-        }
-      };
-
       return (
-        React.createElement('div', { id: categoryId, className: 'section-container' },
-          React.createElement('div', { className: 'section' }, title),
-          React.createElement('div', { className: 'gallery-buttons-container' },
-            subGalleries.map(sg => (
-              React.createElement('button', {
-                key: sg.id,
-                className: `toggleGalleryButton ${activeGalleryId === sg.id ? 'active' : ''}`,
-                onClick: () => toggleGallery(sg.id)
-              },
-                React.createElement('img', { src: sg.previewImage, alt: sg.alt, loading: 'lazy', decoding: 'async' })
-              )
-            ))
-          ),
-          React.createElement('div', { className: `gallery-container-animated ${activeGalleryId ? 'open' : ''}` },
-            activeGalleryId && (
-              React.createElement(ImageGallery, {
-                  ref: galleryRef,
-                  gallery: subGalleries.find(sg => sg.id === activeGalleryId),
-                  openModal: openModal
-              })
-            )
-          )
-        )
+        <div id={categoryId} className="section-container">
+          <div className="section">{title}</div>
+          <div className="gallery-buttons-container">
+            {subGalleries.map(sg => (
+              <button
+                key={sg.id}
+                className="toggleGalleryButton"
+                onClick={() => onGallerySelect(sg)}
+              >
+                <img src={sg.previewImage} alt={sg.alt} loading="lazy" decoding="async" />
+              </button>
+            ))}
+          </div>
+        </div>
       );
     };
 
-    // --- Modal Component ---
-    const Modal = ({ modalState, closeModal, setModalState }) => {
-      const { isOpen, images, currentIndex, galleryId } = modalState;
-      const [isAfter, setIsAfter] = useState(true);
-      const [imageOrientation, setImageOrientation] = useState('landscape');
-      const [showInstruction, setShowInstruction] = useState(false);
-      const modalRef = useRef(null);
-
-      const navigate = useCallback((direction) => {
-        if (!images.length) return;
-        const newIndex = direction === 'next'
-          ? (currentIndex + 1) % images.length
-          : (currentIndex - 1 + images.length) % images.length;
-        setModalState(prev => ({ ...prev, currentIndex: newIndex }));
-        setIsAfter(true);
-      }, [currentIndex, images.length, setModalState]);
-
-      useEffect(() => {
-        if (isOpen) {
-          setIsAfter(true);
-          if (galleryId) {
-            const hasViewed = sessionStorage.getItem(`viewed_gallery_${galleryId}`);
-            if (!hasViewed) {
-              setShowInstruction(true);
-            } else {
-              setShowInstruction(false);
-            }
-          }
-        } else {
-            setShowInstruction(false);
-        }
-      }, [isOpen, galleryId]);
-
-      const hideInstruction = () => {
-        if (galleryId) {
-            sessionStorage.setItem(`viewed_gallery_${galleryId}`, 'true');
-            setShowInstruction(false);
-        }
-      };
-
-      useEffect(() => {
-        const handleKeyDown = (e) => {
-          if (!isOpen) return;
-          if (showInstruction && (e.key === ' ' || e.key === 'Enter')) {
-              hideInstruction();
-              return;
-          }
-          if (e.key === 'Escape') closeModal();
-          if (e.key === 'ArrowRight') navigate('next');
-          if (e.key === 'ArrowLeft') navigate('prev');
-        };
-        window.addEventListener('keydown', handleKeyDown);
+    const GalleryModal = ({ gallery, closeModal, openImageModal }) => {
+        const [images, setImages] = useState([]);
+        const [isLoading, setIsLoading] = useState(false);
+        const [itemSize, setItemSize] = useState({ width: 0, height: 0 });
+        const gridRef = useRef(null);
         
-        let hammer = null;
-        if (isOpen && modalRef.current) {
-            hammer = new window.Hammer(modalRef.current);
-            hammer.on('swipeleft', () => navigate('next'));
-            hammer.on('swiperight', () => navigate('prev'));
-        }
-
-        return () => {
-          window.removeEventListener('keydown', handleKeyDown);
-          if (hammer) hammer.destroy();
+        const parseCsv = (text) => {
+            if (!text) return [];
+            return text.split('\n').map(row => row.split(',').map(cell => cell.trim().replace(/"/g, '')));
         };
-      }, [isOpen, closeModal, navigate, showInstruction]);
 
-      if (!isOpen || !images[currentIndex]) return null;
-
-      const currentImage = images[currentIndex];
-
-      const handleImageLoad = (e) => {
-        const { naturalWidth, naturalHeight } = e.currentTarget;
-        setImageOrientation(naturalHeight > naturalWidth ? 'portrait' : 'landscape');
-      };
-
-      return (
-        React.createElement('div', { className: 'modal show', onClick: closeModal, role: 'dialog', 'aria-modal': 'true' },
-          React.createElement('div', { className: `modal-content image-orientation-${imageOrientation}`, onClick: e => e.stopPropagation(), ref: modalRef },
-            React.createElement('span', { className: 'close', onClick: closeModal, 'aria-label': 'Close modal' }, '×'),
-            showInstruction && (
-              React.createElement('div', { className: 'instruction-overlay', onClick: hideInstruction, role: 'button', tabIndex: 0 },
-                  React.createElement('div', { className: 'instruction-text' },
-                      React.createElement('i', { className: 'fa-solid fa-hand-pointer', 'aria-hidden': 'true' }),
-                      React.createElement('p', null, 'Click on photo to see'),
-                      React.createElement('p', null, React.createElement('strong', null, 'Before / After'))
-                  )
-              )
-            ),
-            React.createElement('img', {
-              className: 'modal-image',
-              src: isAfter ? currentImage.finalSrc : currentImage.rawSrc,
-              onClick: () => setIsAfter(prev => !prev),
-              alt: currentImage.alt,
-              onLoad: handleImageLoad
-            }),
-            React.createElement('div', { className: 'copyright-text' },
-              currentImage.alt
-            )
-          ),
-          React.createElement('div', { id: 'prevButton', className: 'prev', onClick: (e) => { e.stopPropagation(); navigate('prev'); }, 'aria-label': 'Previous image' }, '❮'),
-          React.createElement('div', { id: 'nextButton', className: 'next', onClick: (e) => { e.stopPropagation(); navigate('next'); }, 'aria-label': 'Next image' }, '❯')
-        )
-      );
-    };
-
-    const categories = [
-      { title: 'LIFESTYLE', id: 'lifestyle', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=815935544' },
-      { title: 'SPORT', id: 'sport', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=1331204404' },
-      { title: 'BUSINESS', id: 'business', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=729258307' },
-      { title: 'STILL-LIFE', id: 'still_life', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=1060238046' },
-      { title: 'MISC', id: 'misc', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=2124139059' },
-    ];
-
-    // --- Main App Component ---
-    const App = () => {
-      const [isDarkMode, setIsDarkMode] = useState(false);
-      const [modalState, setModalState] = useState({ isOpen: false, images: [], currentIndex: 0, galleryId: null });
-      const [activeSectionId, setActiveSectionId] = useState(null);
-
-      useEffect(() => {
-        document.documentElement.classList.toggle('dark-mode', isDarkMode);
-      }, [isDarkMode]);
-
-      useEffect(() => {
-        document.addEventListener('contextmenu', preventDefault);
-        document.addEventListener('dragstart', preventDefault);
-        return () => {
-          document.removeEventListener('contextmenu', preventDefault);
-          document.removeEventListener('dragstart', preventDefault);
-        };
-      }, []);
-
-      useEffect(() => {
-        const handleScroll = () => {
-          const offset = 200;
-          let currentActiveId = null;
-
-          categories.forEach(cat => {
-            const element = document.getElementById(`${cat.id}-section`);
-            if (element) {
-              const rect = element.getBoundingClientRect();
-              if (rect.top <= offset && rect.bottom >= offset) {
-                currentActiveId = cat.id;
-              }
+        useEffect(() => {
+            if (!gallery) {
+                setImages([]);
+                return;
             }
-          });
-          setActiveSectionId(currentActiveId);
+
+            setIsLoading(true);
+            fetch(gallery.csvUrl)
+                .then(response => response.text())
+                .then(csvText => {
+                    const rows = parseCsv(csvText);
+                    const imageMap = new Map();
+
+                    rows.forEach(([fileName, fileUrl]) => {
+                        if (!fileName || !fileUrl) return;
+                        const baseName = fileName.replace('_raw.jpg', '').replace('_final.jpg', '');
+                        if (!imageMap.has(baseName)) {
+                            imageMap.set(baseName, { id: baseName, alt: `All rights reserved © ${gallery.alt}` });
+                        }
+                        const imageObject = imageMap.get(baseName);
+                        if (fileName.includes('_raw')) {
+                            imageObject.rawSrc = fileUrl;
+                        } else if (fileName.includes('_final')) {
+                            imageObject.finalSrc = fileUrl;
+                        }
+                    });
+
+                    const loadedImages = Array.from(imageMap.values())
+                        .filter(img => img.rawSrc && img.finalSrc);
+
+                    setImages(loadedImages);
+                }).finally(() => {
+                    setIsLoading(false);
+                });
+        }, [gallery]);
+
+        const calculateItemSize = useCallback(() => {
+            if (!gridRef.current || images.length === 0 || !gallery) return;
+
+            const containerWidth = gridRef.current.clientWidth;
+            const containerHeight = gridRef.current.clientHeight;
+            const count = images.length;
+            const gap = 10;
+            const aspectRatio = 1.4;
+
+            let bestLayout = { area: 0, width: 0, height: 0 };
+
+            for (let cols = 1; cols <= count; cols++) {
+                const rows = Math.ceil(count / cols);
+                const availableWidth = containerWidth - (cols + 1) * gap;
+                const availableHeight = containerHeight - (rows + 1) * gap;
+                const itemWidth = availableWidth / cols;
+                const itemHeight = availableHeight / rows;
+
+                let currentWidth, currentHeight;
+                if (itemWidth / aspectRatio > itemHeight) {
+                    currentHeight = itemHeight;
+                    currentWidth = itemHeight * aspectRatio;
+                } else {
+                    currentWidth = itemWidth;
+                    currentHeight = itemWidth / aspectRatio;
+                }
+
+                const area = currentWidth * currentHeight;
+                if (area > bestLayout.area) {
+                    bestLayout = { area, width: currentWidth, height: currentHeight };
+                }
+            }
+            
+            if (bestLayout.width > 0) {
+                setItemSize({ width: bestLayout.width, height: bestLayout.height });
+            }
+        }, [images, gallery]);
+
+        useEffect(() => {
+            if (images.length > 0) {
+                const timer = setTimeout(calculateItemSize, 50);
+                window.addEventListener('resize', calculateItemSize);
+                
+                return () => {
+                    clearTimeout(timer);
+                    window.removeEventListener('resize', calculateItemSize);
+                };
+            }
+        }, [images, calculateItemSize]);
+
+        useEffect(() => {
+            const handleKeyDown = (e) => {
+                if (e.key === 'Escape') {
+                    closeModal();
+                }
+            };
+            window.addEventListener('keydown', handleKeyDown);
+            return () => {
+                window.removeEventListener('keydown', handleKeyDown);
+            };
+        }, [closeModal]);
+
+        if (!gallery) return null;
+
+        return (
+            <div className={`gallery-modal ${gallery ? 'show' : ''}`} onClick={closeModal}>
+                <div className="gallery-modal-content" onClick={e => e.stopPropagation()}>
+                    <span className="close-gallery-modal" onClick={closeModal}>&times;</span>
+                    <div className="gallery-modal-grid" ref={gridRef}>
+                        {isLoading ? (
+                            <div className="loader-container"><div className="loader"></div></div>
+                        ) : (
+                            images.map((image, index) => (
+                                <div
+                                    key={image.id}
+                                    className="gallery-modal-img-container"
+                                    onClick={() => openImageModal(images, index, gallery.id)}
+                                    style={{
+                                        width: itemSize.width > 0 ? `${itemSize.width}px` : undefined,
+                                        height: itemSize.height > 0 ? `${itemSize.height}px` : undefined,
+                                    }}
+                                >
+                                    <img src={image.finalSrc} alt={image.alt} loading="lazy" decoding="async" />
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+    
+    const Modal = ({ modalState, closeModal, setModalState }) => {
+        const { isOpen, images, currentIndex, galleryId } = modalState;
+        const [isAfter, setIsAfter] = useState(true);
+        const [imageOrientation, setImageOrientation] = useState('landscape');
+        const [showInstruction, setShowInstruction] = useState(false);
+        const modalRef = useRef(null);
+
+        const navigate = useCallback((direction) => {
+            if (!images.length) return;
+            const newIndex = direction === 'next'
+                ? (currentIndex + 1) % images.length
+                : (currentIndex - 1 + images.length) % images.length;
+            setModalState(prev => ({ ...prev, currentIndex: newIndex }));
+            setIsAfter(true);
+        }, [currentIndex, images.length, setModalState]);
+
+        useEffect(() => {
+            if (isOpen) {
+                setIsAfter(true);
+                if (galleryId) {
+                    const hasViewed = sessionStorage.getItem(`viewed_gallery_${galleryId}`);
+                    setShowInstruction(!hasViewed);
+                }
+            } else {
+                setShowInstruction(false);
+            }
+        }, [isOpen, galleryId]);
+
+        const hideInstruction = () => {
+            if (galleryId) {
+                sessionStorage.setItem(`viewed_gallery_${galleryId}`, 'true');
+                setShowInstruction(false);
+            }
         };
 
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        handleScroll();
+        useEffect(() => {
+            const handleKeyDown = (e) => {
+                if (!isOpen) return;
+                if (showInstruction && (e.key === ' ' || e.key === 'Enter')) {
+                    hideInstruction();
+                    return;
+                }
+                if (e.key === 'Escape') closeModal();
+                if (e.key === 'ArrowRight') navigate('next');
+                if (e.key === 'ArrowLeft') navigate('prev');
+            };
+            window.addEventListener('keydown', handleKeyDown);
 
-        return () => window.removeEventListener('scroll', handleScroll);
-      }, []);
+            let hammer = null;
+            if (isOpen && modalRef.current) {
+                hammer = new window.Hammer(modalRef.current);
+                hammer.on('swipeleft', () => navigate('next'));
+                hammer.on('swiperight', () => navigate('prev'));
+            }
 
+            return () => {
+                window.removeEventListener('keydown', handleKeyDown);
+                if (hammer) hammer.destroy();
+            };
+        }, [isOpen, closeModal, navigate, showInstruction]);
 
-      const toggleDarkMode = () => setIsDarkMode(prev => !prev);
-      
-      const openModal = useCallback((images, index, galleryId) => {
-        setModalState({ isOpen: true, images, currentIndex: index, galleryId: galleryId });
-      }, []);
+        if (!isOpen || !images[currentIndex]) return null;
 
-      const closeModal = useCallback(() => {
-        setModalState(prevState => ({ ...prevState, isOpen: false, galleryId: null }));
-      }, []);
-      
-      return (
-        React.createElement(React.Fragment, null,
-          React.createElement(Header, { toggleDarkMode: toggleDarkMode, isDarkMode: isDarkMode }),
-          React.createElement(Navigation, { categories: categories, activeSectionId: activeSectionId }),
-          React.createElement('div', { className: 'content' },
-            categories.map(cat => (
-              React.createElement(GalleryCategory, {
-                key: cat.id,
-                title: cat.title,
-                categoryId: `${cat.id}-section`,
-                buttonsCsvUrl: cat.buttonsCsv,
-                openModal: openModal
-              })
-            ))
-          ),
-          React.createElement(Modal, { modalState: modalState, closeModal: closeModal, setModalState: setModalState })
-        )
-      );
+        const currentImage = images[currentIndex];
+
+        const handleImageLoad = (e) => {
+            const { naturalWidth, naturalHeight } = e.currentTarget;
+            setImageOrientation(naturalHeight > naturalWidth ? 'portrait' : 'landscape');
+        };
+
+        return (
+            <div className="modal show" onClick={closeModal} role="dialog" aria-modal="true">
+                <div className={`modal-content image-orientation-${imageOrientation}`} onClick={e => e.stopPropagation()} ref={modalRef}>
+                    <span className="close" onClick={closeModal} aria-label="Close modal">&times;</span>
+                    {showInstruction && (
+                        <div className="instruction-overlay" onClick={hideInstruction} role="button" tabIndex={0}>
+                            <div className="instruction-text">
+                                <i className="fa-solid fa-hand-pointer" aria-hidden="true"></i>
+                                <p>Click on photo to see</p>
+                                <p><strong>Before / After</strong></p>
+                            </div>
+                        </div>
+                    )}
+                    <img
+                        className="modal-image"
+                        src={isAfter ? currentImage.finalSrc : currentImage.rawSrc}
+                        onClick={() => setIsAfter(prev => !prev)}
+                        alt={currentImage.alt}
+                        onLoad={handleImageLoad}
+                    />
+                    <div className="copyright-text">{currentImage.alt}</div>
+                </div>
+                <div id="prevButton" className="prev" onClick={(e) => { e.stopPropagation(); navigate('prev'); }} aria-label="Previous image">&#10094;</div>
+                <div id="nextButton" className="next" onClick={(e) => { e.stopPropagation(); navigate('next'); }} aria-label="Next image">&#10095;</div>
+            </div>
+        );
     };
 
-    const rootElement = document.getElementById('root');
-    if (!rootElement) {
-      throw new Error("Could not find root element to mount to");
-    }
+    // --- MAIN APP ---
+    const App = () => {
+        const preventDefault = (e) => e.preventDefault();
 
+        const categories = [
+            { title: 'LIFESTYLE', id: 'lifestyle', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=815935544' },
+            { title: 'SPORT', id: 'sport', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=1331204404' },
+            { title: 'BUSINESS', id: 'business', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=729258307' },
+            { title: 'STILL-LIFE', id: 'still_life', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=1060238046' },
+            { title: 'MISC', id: 'misc', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=2124139059' },
+        ];
+
+        const [isDarkMode, setIsDarkMode] = useState(false);
+        const [imageModalState, setImageModalState] = useState({ isOpen: false, images: [], currentIndex: 0, galleryId: null });
+        const [selectedGallery, setSelectedGallery] = useState(null);
+        const [activeSectionId, setActiveSectionId] = useState(null);
+
+        useEffect(() => {
+            document.documentElement.classList.toggle('dark-mode', isDarkMode);
+        }, [isDarkMode]);
+
+        useEffect(() => {
+            document.addEventListener('contextmenu', preventDefault);
+            document.addEventListener('dragstart', preventDefault);
+            return () => {
+                document.removeEventListener('contextmenu', preventDefault);
+                document.removeEventListener('dragstart', preventDefault);
+            };
+        }, []);
+
+        useEffect(() => {
+            const handleScroll = () => {
+                const offset = 200;
+                let currentActiveId = null;
+
+                categories.forEach(cat => {
+                    const element = document.getElementById(`${cat.id}-section`);
+                    if (element) {
+                        const rect = element.getBoundingClientRect();
+                        if (rect.top <= offset && rect.bottom >= offset) {
+                            currentActiveId = cat.id;
+                        }
+                    }
+                });
+                setActiveSectionId(currentActiveId);
+            };
+
+            window.addEventListener('scroll', handleScroll, { passive: true });
+            handleScroll();
+
+            return () => window.removeEventListener('scroll', handleScroll);
+        }, []);
+
+        const toggleDarkMode = () => setIsDarkMode(prev => !prev);
+        
+        const openImageModal = useCallback((images, index, galleryId) => {
+            setImageModalState({ isOpen: true, images, currentIndex: index, galleryId: galleryId });
+        }, []);
+
+        const closeImageModal = useCallback(() => {
+            setImageModalState(prevState => ({ ...prevState, isOpen: false, galleryId: null }));
+        }, []);
+
+        const openGalleryModal = (gallery) => setSelectedGallery(gallery);
+        const closeGalleryModal = () => setSelectedGallery(null);
+        
+        return (
+            <React.Fragment>
+                <Header toggleDarkMode={toggleDarkMode} isDarkMode={isDarkMode} />
+                <Navigation categories={categories} activeSectionId={activeSectionId} />
+                <div className="content">
+                    {categories.map(cat => (
+                        <GalleryCategory
+                            key={cat.id}
+                            title={cat.title}
+                            categoryId={`${cat.id}-section`}
+                            buttonsCsvUrl={cat.buttonsCsv}
+                            onGallerySelect={openGalleryModal}
+                        />
+                    ))}
+                </div>
+                <GalleryModal
+                    gallery={selectedGallery}
+                    closeModal={closeGalleryModal}
+                    openImageModal={openImageModal}
+                />
+                <Modal modalState={imageModalState} closeModal={closeImageModal} setModalState={setImageModalState} />
+            </React.Fragment>
+        );
+    };
+
+    // --- RENDER APP ---
+    const rootElement = document.getElementById('root');
     const root = ReactDOM.createRoot(rootElement);
     root.render(
-      React.createElement(React.StrictMode, null,
-        React.createElement(App)
-      )
+        <React.StrictMode>
+            <App />
+        </React.StrictMode>
     );
+
   </script>
 </body>
 </html>
