@@ -11,10 +11,16 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
-
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+      "react": "https://esm.sh/react@18.2.0"
+    }
+  }
+  </script>
 
   <style>
     :root {
@@ -367,6 +373,10 @@
       padding: 35px 10px 10px;
     }
 
+    .gallery-modal-grid.loading {
+      align-items: center;
+    }
+
     .gallery-modal-img-container {
       position: relative;
       overflow: hidden;
@@ -653,23 +663,14 @@
       .next { right: 1%; }
     }
   </style>
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
-  }
-}
-</script>
 </head>
 <body>
   <div id="root"></div>
-  <script type="text/babel">
-    const { useState, useEffect, useRef, useCallback } = React;
+  <script type="text/babel" data-type="module">
+    import React, { useState, useEffect, useRef, useCallback } from 'react';
+    import ReactDOM from 'react-dom/client';
 
-    // --- COMPONENTS ---
-
+    // --- Component: Header ---
     const Header = ({ toggleDarkMode, isDarkMode }) => {
       return (
         <header>
@@ -692,15 +693,16 @@
       );
     };
 
+    // --- Component: Navigation ---
     const Navigation = ({ categories, activeSectionId }) => {
+      const [isFloating, setIsFloating] = useState(false);
+      
       const scrollToElement = (elementId) => {
         const element = document.getElementById(elementId);
         if (element) {
           element.scrollIntoView({ behavior: 'smooth' });
         }
       };
-      
-      const [isFloating, setIsFloating] = useState(false);
 
       useEffect(() => {
         const handleScroll = () => {
@@ -735,6 +737,7 @@
       );
     };
 
+    // --- Component: GalleryCategory ---
     const GalleryCategory = ({ title, categoryId, buttonsCsvUrl, onGallerySelect }) => {
       const [subGalleries, setSubGalleries] = useState([]);
 
@@ -750,7 +753,7 @@
             const rows = parseCsv(csvText);
             const galleries = rows.map(([id, csvUrl, amount, alt, previewImage]) => ({
               id: id,
-              csvUrl: csvUrl ? csvUrl.replace(/&amp;/g, '&') : '',
+              csvUrl: csvUrl.replace(/&amp;/g, '&'),
               amount: parseInt(amount, 10),
               alt: alt,
               previewImage: previewImage
@@ -777,343 +780,364 @@
       );
     };
 
+    // --- Component: GalleryModal ---
     const GalleryModal = ({ gallery, closeModal, openImageModal }) => {
-        const [images, setImages] = useState([]);
-        const [isLoading, setIsLoading] = useState(false);
-        const [itemSize, setItemSize] = useState({ width: 0, height: 0 });
-        const gridRef = useRef(null);
-        
-        const parseCsv = (text) => {
-            if (!text) return [];
-            return text.split('\n').map(row => row.split(',').map(cell => cell.trim().replace(/"/g, '')));
-        };
+      const [images, setImages] = useState([]);
+      const [isLoading, setIsLoading] = useState(false);
+      const [itemSize, setItemSize] = useState({ width: 0, height: 0 });
+      const gridRef = useRef(null);
+      
+      const parseCsv = (text) => {
+        if (!text) return [];
+        return text.split('\n').map(row => row.split(',').map(cell => cell.trim().replace(/"/g, '')));
+      };
 
-        useEffect(() => {
-            if (!gallery) {
-                setImages([]);
-                return;
-            }
+      useEffect(() => {
+        if (!gallery) {
+          setImages([]);
+          return;
+        }
 
-            setIsLoading(true);
-            fetch(gallery.csvUrl)
-                .then(response => response.text())
-                .then(csvText => {
-                    const rows = parseCsv(csvText);
-                    const imageMap = new Map();
-
-                    rows.forEach(([fileName, fileUrl]) => {
-                        if (!fileName || !fileUrl) return;
-                        const baseName = fileName.replace('_raw.jpg', '').replace('_final.jpg', '');
-                        if (!imageMap.has(baseName)) {
-                            imageMap.set(baseName, { id: baseName, alt: `All rights reserved © ${gallery.alt}` });
-                        }
-                        const imageObject = imageMap.get(baseName);
-                        if (fileName.includes('_raw')) {
-                            imageObject.rawSrc = fileUrl;
-                        } else if (fileName.includes('_final')) {
-                            imageObject.finalSrc = fileUrl;
-                        }
-                    });
-
-                    const loadedImages = Array.from(imageMap.values())
-                        .filter(img => img.rawSrc && img.finalSrc);
-
-                    setImages(loadedImages);
-                }).finally(() => {
-                    setIsLoading(false);
-                });
-        }, [gallery]);
-
-        const calculateItemSize = useCallback(() => {
-            if (!gridRef.current || images.length === 0 || !gallery) return;
-
-            const containerWidth = gridRef.current.clientWidth;
-            const containerHeight = gridRef.current.clientHeight;
-            const count = images.length;
-            const gap = 10;
-            const aspectRatio = 1.4;
-
-            let bestLayout = { area: 0, width: 0, height: 0 };
-
-            for (let cols = 1; cols <= count; cols++) {
-                const rows = Math.ceil(count / cols);
-                const availableWidth = containerWidth - (cols + 1) * gap;
-                const availableHeight = containerHeight - (rows + 1) * gap;
-                const itemWidth = availableWidth / cols;
-                const itemHeight = availableHeight / rows;
-
-                let currentWidth, currentHeight;
-                if (itemWidth / aspectRatio > itemHeight) {
-                    currentHeight = itemHeight;
-                    currentWidth = itemHeight * aspectRatio;
-                } else {
-                    currentWidth = itemWidth;
-                    currentHeight = itemWidth / aspectRatio;
-                }
-
-                const area = currentWidth * currentHeight;
-                if (area > bestLayout.area) {
-                    bestLayout = { area, width: currentWidth, height: currentHeight };
-                }
-            }
+        setIsLoading(true);
+        fetch(gallery.csvUrl)
+          .then(response => response.text())
+          .then(csvText => {
+            const rows = parseCsv(csvText);
+            const imageMap = new Map();
             
-            if (bestLayout.width > 0) {
-                setItemSize({ width: bestLayout.width, height: bestLayout.height });
+            rows.forEach(([fileName, fileUrl]) => {
+              if (!fileName || !fileUrl) return;
+              const baseName = fileName.replace('_raw.jpg', '').replace('_final.jpg', '');
+              if (!imageMap.has(baseName)) {
+                imageMap.set(baseName, { id: baseName, alt: `All rights reserved © ${gallery.alt}` });
+              }
+              const imageObject = imageMap.get(baseName);
+              if (fileName.includes('_raw')) {
+                imageObject.rawSrc = fileUrl;
+              } else if (fileName.includes('_final')) {
+                imageObject.finalSrc = fileUrl;
+              }
+            });
+            
+            const loadedImages = Array.from(imageMap.values())
+                .filter(img => img.rawSrc && img.finalSrc);
+
+            setImages(loadedImages);
+          }).finally(() => {
+            setIsLoading(false);
+          });
+      }, [gallery]);
+
+      const calculateItemSize = useCallback(() => {
+        if (!gridRef.current || images.length === 0 || !gallery) return;
+
+        const containerWidth = gridRef.current.clientWidth;
+        const containerHeight = gridRef.current.clientHeight;
+        const count = images.length;
+        const gap = 10;
+        const aspectRatio = 1.4;
+
+        let bestLayout = { area: 0, width: 0, height: 0 };
+
+        for (let cols = 1; cols <= count; cols++) {
+            const rows = Math.ceil(count / cols);
+
+            const availableWidth = containerWidth - (cols + 1) * gap;
+            const availableHeight = containerHeight - (rows + 1) * gap;
+
+            const itemWidth = availableWidth / cols;
+            const itemHeight = availableHeight / rows;
+
+            let currentWidth, currentHeight;
+            if (itemWidth / aspectRatio > itemHeight) {
+                currentHeight = itemHeight;
+                currentWidth = itemHeight * aspectRatio;
+            } else {
+                currentWidth = itemWidth;
+                currentHeight = itemWidth / aspectRatio;
             }
-        }, [images, gallery]);
 
-        useEffect(() => {
-            if (images.length > 0) {
-                const timer = setTimeout(calculateItemSize, 50);
-                window.addEventListener('resize', calculateItemSize);
-                
-                return () => {
-                    clearTimeout(timer);
-                    window.removeEventListener('resize', calculateItemSize);
-                };
+            const area = currentWidth * currentHeight;
+            if (area > bestLayout.area) {
+                bestLayout = { area, width: currentWidth, height: currentHeight };
             }
-        }, [images, calculateItemSize]);
+        }
+        
+        if (bestLayout.width > 0) {
+            setItemSize({ width: bestLayout.width, height: bestLayout.height });
+        }
+      }, [images, gallery]);
 
-        useEffect(() => {
-            const handleKeyDown = (e) => {
-                if (e.key === 'Escape') {
-                    closeModal();
-                }
-            };
-            window.addEventListener('keydown', handleKeyDown);
-            return () => {
-                window.removeEventListener('keydown', handleKeyDown);
-            };
-        }, [closeModal]);
+      useEffect(() => {
+        if (images.length > 0) {
+          const timer = setTimeout(calculateItemSize, 50);
+          window.addEventListener('resize', calculateItemSize);
+          
+          return () => {
+            clearTimeout(timer);
+            window.removeEventListener('resize', calculateItemSize);
+          };
+        }
+      }, [images, calculateItemSize]);
 
-        if (!gallery) return null;
+      useEffect(() => {
+        const handleKeyDown = (e) => {
+          if (e.key === 'Escape') {
+            closeModal();
+          }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+          window.removeEventListener('keydown', handleKeyDown);
+        };
+      }, [closeModal]);
 
-        return (
-            <div className={`gallery-modal ${gallery ? 'show' : ''}`} onClick={closeModal}>
-                <div className="gallery-modal-content" onClick={e => e.stopPropagation()}>
-                    <span className="close-gallery-modal" onClick={closeModal}>&times;</span>
-                    <div className="gallery-modal-grid" ref={gridRef}>
-                        {isLoading ? (
-                            <div className="loader-container"><div className="loader"></div></div>
-                        ) : (
-                            images.map((image, index) => (
-                                <div
-                                    key={image.id}
-                                    className="gallery-modal-img-container"
-                                    onClick={() => openImageModal(images, index, gallery.id)}
-                                    style={{
-                                        width: itemSize.width > 0 ? `${itemSize.width}px` : undefined,
-                                        height: itemSize.height > 0 ? `${itemSize.height}px` : undefined,
-                                    }}
-                                >
-                                    <img src={image.finalSrc} alt={image.alt} loading="lazy" decoding="async" />
-                                </div>
-                            ))
-                        )}
-                    </div>
+      if (!gallery) return null;
+
+      return (
+        <div className={`gallery-modal ${gallery ? 'show' : ''}`} onClick={closeModal}>
+          <div className="gallery-modal-content" onClick={e => e.stopPropagation()}>
+            <span className="close-gallery-modal" onClick={closeModal}>&times;</span>
+            <div className={`gallery-modal-grid ${isLoading ? 'loading' : ''}`} ref={gridRef}>
+              {isLoading ? (
+                <div className="loader-container">
+                  <div className="loader"></div>
                 </div>
+              ) : (
+                images.map((image, index) => (
+                  <div
+                    key={image.id}
+                    className="gallery-modal-img-container"
+                    onClick={() => openImageModal(images, index, gallery.id)}
+                    style={{
+                        width: itemSize.width > 0 ? `${itemSize.width}px` : undefined,
+                        height: itemSize.height > 0 ? `${itemSize.height}px` : undefined,
+                    }}
+                  >
+                    <img src={image.finalSrc} alt={image.alt} loading="lazy" decoding="async" />
+                  </div>
+                ))
+              )}
             </div>
-        );
+          </div>
+        </div>
+      );
     };
     
+    // --- Component: Modal ---
     const Modal = ({ modalState, closeModal, setModalState }) => {
-        const { isOpen, images, currentIndex, galleryId } = modalState;
-        const [isAfter, setIsAfter] = useState(true);
-        const [imageOrientation, setImageOrientation] = useState('landscape');
-        const [showInstruction, setShowInstruction] = useState(false);
-        const modalRef = useRef(null);
+      const { isOpen, images, currentIndex, galleryId } = modalState;
+      const [isAfter, setIsAfter] = useState(true);
+      const [imageOrientation, setImageOrientation] = useState('landscape');
+      const [showInstruction, setShowInstruction] = useState(false);
+      const modalRef = useRef(null);
 
-        const navigate = useCallback((direction) => {
-            if (!images.length) return;
-            const newIndex = direction === 'next'
-                ? (currentIndex + 1) % images.length
-                : (currentIndex - 1 + images.length) % images.length;
-            setModalState(prev => ({ ...prev, currentIndex: newIndex }));
-            setIsAfter(true);
-        }, [currentIndex, images.length, setModalState]);
+      const navigate = useCallback((direction) => {
+        if (!images.length) return;
+        const newIndex = direction === 'next'
+          ? (currentIndex + 1) % images.length
+          : (currentIndex - 1 + images.length) % images.length;
+        setModalState(prev => ({ ...prev, currentIndex: newIndex }));
+        setIsAfter(true);
+      }, [currentIndex, images.length, setModalState]);
 
-        useEffect(() => {
-            if (isOpen) {
-                setIsAfter(true);
-                if (galleryId) {
-                    const hasViewed = sessionStorage.getItem(`viewed_gallery_${galleryId}`);
-                    setShowInstruction(!hasViewed);
-                }
+      useEffect(() => {
+        if (isOpen) {
+          setIsAfter(true);
+          if (galleryId) {
+            const hasViewed = sessionStorage.getItem(`viewed_gallery_${galleryId}`);
+            if (!hasViewed) {
+              setShowInstruction(true);
             } else {
-                setShowInstruction(false);
+              setShowInstruction(false);
             }
-        }, [isOpen, galleryId]);
+          }
+        } else {
+            setShowInstruction(false);
+        }
+      }, [isOpen, galleryId]);
 
-        const hideInstruction = () => {
-            if (galleryId) {
-                sessionStorage.setItem(`viewed_gallery_${galleryId}`, 'true');
-                setShowInstruction(false);
-            }
+      const hideInstruction = () => {
+        if (galleryId) {
+            sessionStorage.setItem(`viewed_gallery_${galleryId}`, 'true');
+            setShowInstruction(false);
+        }
+      };
+
+      useEffect(() => {
+        const handleKeyDown = (e) => {
+          if (!isOpen) return;
+          if (showInstruction && (e.key === ' ' || e.key === 'Enter')) {
+              hideInstruction();
+              return;
+          }
+          if (e.key === 'Escape') closeModal();
+          if (e.key === 'ArrowRight') navigate('next');
+          if (e.key === 'ArrowLeft') navigate('prev');
         };
+        window.addEventListener('keydown', handleKeyDown);
+        
+        let hammer = null;
+        if (isOpen && modalRef.current) {
+            hammer = new window.Hammer(modalRef.current);
+            hammer.on('swipeleft', () => navigate('next'));
+            hammer.on('swiperight', () => navigate('prev'));
+        }
 
-        useEffect(() => {
-            const handleKeyDown = (e) => {
-                if (!isOpen) return;
-                if (showInstruction && (e.key === ' ' || e.key === 'Enter')) {
-                    hideInstruction();
-                    return;
-                }
-                if (e.key === 'Escape') closeModal();
-                if (e.key === 'ArrowRight') navigate('next');
-                if (e.key === 'ArrowLeft') navigate('prev');
-            };
-            window.addEventListener('keydown', handleKeyDown);
-
-            let hammer = null;
-            if (isOpen && modalRef.current) {
-                hammer = new window.Hammer(modalRef.current);
-                hammer.on('swipeleft', () => navigate('next'));
-                hammer.on('swiperight', () => navigate('prev'));
-            }
-
-            return () => {
-                window.removeEventListener('keydown', handleKeyDown);
-                if (hammer) hammer.destroy();
-            };
-        }, [isOpen, closeModal, navigate, showInstruction]);
-
-        if (!isOpen || !images[currentIndex]) return null;
-
-        const currentImage = images[currentIndex];
-
-        const handleImageLoad = (e) => {
-            const { naturalWidth, naturalHeight } = e.currentTarget;
-            setImageOrientation(naturalHeight > naturalWidth ? 'portrait' : 'landscape');
+        return () => {
+          window.removeEventListener('keydown', handleKeyDown);
+          if (hammer) hammer.destroy();
         };
+      }, [isOpen, closeModal, navigate, showInstruction]);
 
-        return (
-            <div className="modal show" onClick={closeModal} role="dialog" aria-modal="true">
-                <div className={`modal-content image-orientation-${imageOrientation}`} onClick={e => e.stopPropagation()} ref={modalRef}>
-                    <span className="close" onClick={closeModal} aria-label="Close modal">&times;</span>
-                    {showInstruction && (
-                        <div className="instruction-overlay" onClick={hideInstruction} role="button" tabIndex={0}>
-                            <div className="instruction-text">
-                                <i className="fa-solid fa-hand-pointer" aria-hidden="true"></i>
-                                <p>Click on photo to see</p>
-                                <p><strong>Before / After</strong></p>
-                            </div>
-                        </div>
-                    )}
-                    <img
-                        className="modal-image"
-                        src={isAfter ? currentImage.finalSrc : currentImage.rawSrc}
-                        onClick={() => setIsAfter(prev => !prev)}
-                        alt={currentImage.alt}
-                        onLoad={handleImageLoad}
-                    />
-                    <div className="copyright-text">{currentImage.alt}</div>
-                </div>
-                <div id="prevButton" className="prev" onClick={(e) => { e.stopPropagation(); navigate('prev'); }} aria-label="Previous image">&#10094;</div>
-                <div id="nextButton" className="next" onClick={(e) => { e.stopPropagation(); navigate('next'); }} aria-label="Next image">&#10095;</div>
+      if (!isOpen || !images[currentIndex]) return null;
+
+      const currentImage = images[currentIndex];
+
+      const handleImageLoad = (e) => {
+        const { naturalWidth, naturalHeight } = e.currentTarget;
+        setImageOrientation(naturalHeight > naturalWidth ? 'portrait' : 'landscape');
+      };
+
+      return (
+        <div className="modal show" onClick={closeModal} role="dialog" aria-modal="true">
+          <div className={`modal-content image-orientation-${imageOrientation}`} onClick={e => e.stopPropagation()} ref={modalRef}>
+            <span className="close" onClick={closeModal} aria-label="Close modal">&times;</span>
+            {showInstruction && (
+              <div className="instruction-overlay" onClick={hideInstruction} role="button" tabIndex={0}>
+                  <div className="instruction-text">
+                      <i className="fa-solid fa-hand-pointer" aria-hidden="true"></i>
+                      <p>Click on photo to see</p>
+                      <p><strong>Before / After</strong></p>
+                  </div>
+              </div>
+            )}
+            <img
+              className="modal-image"
+              src={isAfter ? currentImage.finalSrc : currentImage.rawSrc}
+              onClick={() => setIsAfter(prev => !prev)}
+              alt={currentImage.alt}
+              onLoad={handleImageLoad}
+            />
+            <div className="copyright-text">
+              {currentImage.alt}
             </div>
-        );
+          </div>
+          <div id="prevButton" className="prev" onClick={(e) => { e.stopPropagation(); navigate('prev'); }} aria-label="Previous image">&#10094;</div>
+          <div id="nextButton" className="next" onClick={(e) => { e.stopPropagation(); navigate('next'); }} aria-label="Next image">&#10095;</div>
+        </div>
+      );
     };
 
-    // --- MAIN APP ---
+    // --- Main App Component ---
     const App = () => {
-        const preventDefault = (e) => e.preventDefault();
+      const [isDarkMode, setIsDarkMode] = useState(false);
+      const [imageModalState, setImageModalState] = useState({ isOpen: false, images: [], currentIndex: 0, galleryId: null });
+      const [selectedGallery, setSelectedGallery] = useState(null);
+      const [activeSectionId, setActiveSectionId] = useState(null);
 
-        const categories = [
-            { title: 'LIFESTYLE', id: 'lifestyle', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=815935544' },
-            { title: 'SPORT', id: 'sport', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=1331204404' },
-            { title: 'BUSINESS', id: 'business', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=729258307' },
-            { title: 'STILL-LIFE', id: 'still_life', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=1060238046' },
-            { title: 'MISC', id: 'misc', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=2124139059' },
-        ];
+      const categories = [
+        { title: 'LIFESTYLE', id: 'lifestyle', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=815935544' },
+        { title: 'SPORT', id: 'sport', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=1331204404' },
+        { title: 'BUSINESS', id: 'business', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=729258307' },
+        { title: 'STILL-LIFE', id: 'still_life', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=1060238046' },
+        { title: 'MISC', id: 'misc', buttonsCsv: 'https://docs.google.com/spreadsheets/d/1bB3jXwpXBAK4mxLVMHGceFb2hvMUCXT_wIWBUroLpY8/export?format=csv&gid=2124139059' },
+      ];
+      
+      const preventDefault = (e) => e.preventDefault();
 
-        const [isDarkMode, setIsDarkMode] = useState(false);
-        const [imageModalState, setImageModalState] = useState({ isOpen: false, images: [], currentIndex: 0, galleryId: null });
-        const [selectedGallery, setSelectedGallery] = useState(null);
-        const [activeSectionId, setActiveSectionId] = useState(null);
+      useEffect(() => {
+        document.documentElement.classList.toggle('dark-mode', isDarkMode);
+      }, [isDarkMode]);
 
-        useEffect(() => {
-            document.documentElement.classList.toggle('dark-mode', isDarkMode);
-        }, [isDarkMode]);
+      useEffect(() => {
+        document.addEventListener('contextmenu', preventDefault);
+        document.addEventListener('dragstart', preventDefault);
+        return () => {
+          document.removeEventListener('contextmenu', preventDefault);
+          document.removeEventListener('dragstart', preventDefault);
+        };
+      }, []);
 
-        useEffect(() => {
-            document.addEventListener('contextmenu', preventDefault);
-            document.addEventListener('dragstart', preventDefault);
-            return () => {
-                document.removeEventListener('contextmenu', preventDefault);
-                document.removeEventListener('dragstart', preventDefault);
-            };
-        }, []);
+      useEffect(() => {
+        const handleScroll = () => {
+          const offset = 200; 
+          let currentActiveId = null;
 
-        useEffect(() => {
-            const handleScroll = () => {
-                const offset = 200;
-                let currentActiveId = null;
+          categories.forEach(cat => {
+            const element = document.getElementById(`${cat.id}-section`);
+            if (element) {
+              const rect = element.getBoundingClientRect();
+              if (rect.top <= offset && rect.bottom >= offset) {
+                currentActiveId = cat.id;
+              }
+            }
+          });
+          setActiveSectionId(currentActiveId);
+        };
 
-                categories.forEach(cat => {
-                    const element = document.getElementById(`${cat.id}-section`);
-                    if (element) {
-                        const rect = element.getBoundingClientRect();
-                        if (rect.top <= offset && rect.bottom >= offset) {
-                            currentActiveId = cat.id;
-                        }
-                    }
-                });
-                setActiveSectionId(currentActiveId);
-            };
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        handleScroll(); 
 
-            window.addEventListener('scroll', handleScroll, { passive: true });
-            handleScroll();
+        return () => window.removeEventListener('scroll', handleScroll);
+      }, []);
 
-            return () => window.removeEventListener('scroll', handleScroll);
-        }, []);
 
-        const toggleDarkMode = () => setIsDarkMode(prev => !prev);
-        
-        const openImageModal = useCallback((images, index, galleryId) => {
-            setImageModalState({ isOpen: true, images, currentIndex: index, galleryId: galleryId });
-        }, []);
+      const toggleDarkMode = () => setIsDarkMode(prev => !prev);
+      
+      const openImageModal = useCallback((images, index, galleryId) => {
+        setImageModalState({ isOpen: true, images, currentIndex: index, galleryId: galleryId });
+      }, []);
 
-        const closeImageModal = useCallback(() => {
-            setImageModalState(prevState => ({ ...prevState, isOpen: false, galleryId: null }));
-        }, []);
+      const closeImageModal = useCallback(() => {
+        setImageModalState(prevState => ({ ...prevState, isOpen: false, galleryId: null }));
+      }, []);
 
-        const openGalleryModal = (gallery) => setSelectedGallery(gallery);
-        const closeGalleryModal = () => setSelectedGallery(null);
-        
-        return (
-            <React.Fragment>
-                <Header toggleDarkMode={toggleDarkMode} isDarkMode={isDarkMode} />
-                <Navigation categories={categories} activeSectionId={activeSectionId} />
-                <div className="content">
-                    {categories.map(cat => (
-                        <GalleryCategory
-                            key={cat.id}
-                            title={cat.title}
-                            categoryId={`${cat.id}-section`}
-                            buttonsCsvUrl={cat.buttonsCsv}
-                            onGallerySelect={openGalleryModal}
-                        />
-                    ))}
-                </div>
-                <GalleryModal
-                    gallery={selectedGallery}
-                    closeModal={closeGalleryModal}
-                    openImageModal={openImageModal}
-                />
-                <Modal modalState={imageModalState} closeModal={closeImageModal} setModalState={setImageModalState} />
-            </React.Fragment>
-        );
+      const openGalleryModal = (gallery) => {
+        setSelectedGallery(gallery);
+      };
+
+      const closeGalleryModal = () => {
+        setSelectedGallery(null);
+      };
+      
+      return (
+        <React.Fragment>
+          <Header toggleDarkMode={toggleDarkMode} isDarkMode={isDarkMode} />
+          <Navigation categories={categories} activeSectionId={activeSectionId} />
+          <div className="content">
+            {categories.map(cat => (
+              <GalleryCategory
+                key={cat.id}
+                title={cat.title}
+                categoryId={`${cat.id}-section`}
+                buttonsCsvUrl={cat.buttonsCsv}
+                onGallerySelect={openGalleryModal}
+              />
+            ))}
+          </div>
+          <GalleryModal
+            gallery={selectedGallery}
+            closeModal={closeGalleryModal}
+            openImageModal={openImageModal}
+          />
+          <Modal modalState={imageModalState} closeModal={closeImageModal} setModalState={setImageModalState} />
+        </React.Fragment>
+      );
     };
 
-    // --- RENDER APP ---
+    // --- Mount React App ---
     const rootElement = document.getElementById('root');
+    if (!rootElement) {
+      throw new Error("Could not find root element to mount to");
+    }
+
     const root = ReactDOM.createRoot(rootElement);
     root.render(
-        <React.StrictMode>
-            <App />
-        </React.StrictMode>
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>
     );
-
   </script>
 </body>
 </html>
